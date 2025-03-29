@@ -62,6 +62,10 @@ const MEETING_URL = "https://meet.evoludata.com/playback/presentation/2.3/fe1604
     console.log(`Video duration: ${Math.floor(videoDuration / 60)}m ${Math.floor(videoDuration % 60)}s`);
     console.log(`Recording duration set to ${recordingDuration / 1000}s.`);
 
+    // Focus the browser window to ensure the video is visible
+    console.log("Focusing the browser window...");
+    await page.bringToFront();
+
     console.log("Starting recording...");
     const ffmpegCmd = [
         '-y', // Overwrite existing files without prompting
@@ -73,6 +77,9 @@ const MEETING_URL = "https://meet.evoludata.com/playback/presentation/2.3/fe1604
         '-framerate', '30',
         '-codec:v', 'mpeg4', // Use mpeg4 encoder
         '-q:v', '5', // Adjust quality (lower is better, 1-31 scale)
+        '-codec:a', 'aac', // Use AAC audio codec for better quality
+        '-b:a', '192k', // Set audio bitrate to 192 kbps for higher quality
+        '-ar', '44100', // Set audio sample rate to 44.1 kHz
         OUTPUT_VIDEO
     ];
     const ffmpegProcess = spawn('ffmpeg', ffmpegCmd);
@@ -84,6 +91,14 @@ const MEETING_URL = "https://meet.evoludata.com/playback/presentation/2.3/fe1604
 
     ffmpegProcess.stderr.on('data', (data) => {
         console.error(`ffmpeg stderr: ${data}`);
+        // Parse ffmpeg logs for video/audio flux
+        const log = data.toString();
+        if (log.includes('frame=')) {
+            console.log("Video flux detected.");
+        }
+        if (log.includes('audio=')) {
+            console.log("Audio flux detected.");
+        }
     });
 
     ffmpegProcess.on('error', (err) => {
@@ -91,7 +106,11 @@ const MEETING_URL = "https://meet.evoludata.com/playback/presentation/2.3/fe1604
     });
 
     ffmpegProcess.on('close', (code) => {
-        console.log(`ffmpeg process exited with code ${code}`);
+        if (code === 0) {
+            console.log("ffmpeg process completed successfully.");
+        } else {
+            console.error(`ffmpeg process exited with code ${code}.`);
+        }
     });
 
     // Log progress every 10 seconds
@@ -99,23 +118,30 @@ const MEETING_URL = "https://meet.evoludata.com/playback/presentation/2.3/fe1604
     let elapsed = 0;
 
     const progressInterval = setInterval(async () => {
-        elapsed += interval;
-        const remaining = recordingDuration - elapsed;
-        const remainingMinutes = Math.floor(remaining / 60000);
-        const remainingSeconds = Math.floor((remaining % 60000) / 1000);
-        console.log(`Recording in progress... ${Math.floor(elapsed / 1000)}s elapsed. Remaining: ${remainingMinutes}m ${remainingSeconds}s.`);
-
-        // Check for connection loss
-        const isConnected = await page.evaluate(() => navigator.onLine);
-        if (!isConnected) {
-            console.log("Connection lost. Waiting for reconnection...");
-            while (!(await page.evaluate(() => navigator.onLine))) {
-                await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds before checking again
+        try {
+            elapsed += interval;
+            const remaining = recordingDuration - elapsed;
+            if (remaining <= 0) {
+                clearInterval(progressInterval);
+                return;
             }
-            console.log("Reconnected. Resuming recording...");
-        }
 
-        if (elapsed >= recordingDuration) {
+            const remainingMinutes = Math.floor(remaining / 60000);
+            const remainingSeconds = Math.floor((remaining % 60000) / 1000);
+            console.log(`Recording in progress... ${Math.floor(elapsed / 1000)}s elapsed. Remaining: ${remainingMinutes}m ${remainingSeconds}s.`);
+
+            // Check for connection loss
+            const isConnected = await page.evaluate(() => navigator.onLine);
+            if (!isConnected) {
+                console.log("Connection lost. Waiting for reconnection...");
+                while (!(await page.evaluate(() => navigator.onLine))) {
+                    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds before checking again
+                }
+                console.log("Reconnected. Resuming recording...");
+            }
+
+        } catch (err) {
+            console.error("Error during progress logging:", err.message);
             clearInterval(progressInterval);
         }
     }, interval);
