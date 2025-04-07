@@ -6,7 +6,8 @@ const fs = require('fs');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-'); // Replace invalid filename characters
 const OUTPUT_VIDEO = `meeting_${timestamp}.mp4`;
 
-const MEETING_URL = "https://meet.evoludata.com/playback/presentation/2.3/fe160481181ac21284041480383a64a0c8255047-1742902798408";
+// Should be public, accessible to anonymous users
+const MEETING_URL = "https://meeting-url.com/playback/presentation/2.3/fe160481181ac21284041480383a64a0c8255047-1742902798408";
 
 (async () => {
     const browser = await puppeteer.launch({
