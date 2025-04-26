@@ -63,6 +63,7 @@ A robust and reliable Node.js tool for recording BigBlueButton meeting playback 
    ```
 
 2. The tool will:
+   - Ask you for the meeting playback url
    - Open the recording in a headless browser
    - Start playback automatically
    - Show real-time progress
