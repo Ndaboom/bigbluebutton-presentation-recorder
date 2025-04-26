@@ -57,17 +57,12 @@ A robust and reliable Node.js tool for recording BigBlueButton meeting playback 
 
 ## Usage
 
-1. Edit `record_meeting.js` and set your meeting URL:
-   ```javascript
-   const MEETING_URL = "your-bbb-recording-url";
-   ```
-
-2. Run the recorder:
+1. Run the recorder(console mode):
    ```bash
    node record_meeting.js
    ```
 
-3. The tool will:
+2. The tool will:
    - Open the recording in a headless browser
    - Start playback automatically
    - Show real-time progress
@@ -115,84 +110,15 @@ DEBUG=1 node record_meeting.js
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes:
-
-1. Fork the repository
+1. Fork the project
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Usage
-
-This application provides two interfaces for recording BigBlueButton presentations:
-
-### Web Interface (Not Recommended as its still in development)
-
-1. Start the web server:
-   ```bash
-   npm install
-   npm run dev
-   ```
-
-2. Open your browser and navigate to `http://localhost:3000`
-
-3. Enter the BigBlueButton recording URL in the input field
-
-4. Click "Start Recording" and monitor the progress
-
-Features:
-- Clean, modern user interface
-- Real-time progress updates
-- Visual progress bar
-- Status notifications
-- Error handling with user feedback
-
-### Console Interface (Highly Recommended)
-
-For command-line usage:
-
-```bash
-# Run the console version
-node record_meeting.js
-```
-
-The script will:
-1. Prompt for the BigBlueButton recording URL
-2. Validate the URL
-3. Start the recording process
-4. Show progress in the console
-5. Save the recording when complete
-
-## Technical Details
-
-### Architecture
-
-- `src/lib/recorder.js`: Core recording logic
-- `src/pages/`: Next.js web interface
-  - `index.js`: Main UI page
-  - `api/`: Backend endpoints
-    - `record.js`: Recording control
-    - `progress.js`: Progress monitoring
-
-### Features
-
-- Supports large recordings (2GB+)
-- Efficient chunk-based recording
-- Proper error handling and cleanup
-- Cross-platform compatibility
-- Real-time progress monitoring
-- Automatic video format conversion
-
-### Requirements
-
-- Node.js 14+
-- FFmpeg (for video processing)
-- Modern web browser (for web interface)
+5. Open a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 Happy recording!
