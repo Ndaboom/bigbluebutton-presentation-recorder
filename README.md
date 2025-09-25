@@ -57,6 +57,20 @@ A robust and reliable Node.js tool for recording BigBlueButton meeting playback 
 
 ## Usage
 
+### Web UI mode
+
+1. Install dependencies if you have not already:
+   ```bash
+   npm install
+   ```
+2. Start the Next.js development server:
+   ```bash
+   npm run dev
+   ```
+3. Open your browser to the URL shown in the terminal (default http://localhost:3000), paste a BigBlueButton recording link, and follow progress directly in the UI.
+
+### Console mode
+
 1. Run the recorder(console mode):
    ```bash
    node record_meeting.js
