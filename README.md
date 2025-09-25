@@ -1,5 +1,7 @@
 # BigBlueButton Presentation Recorder/Exporter
 
+![Screenshot of the BigBlueButton presentation recorder UI](Screenshot%202025-09-26%20at%201.18.55%E2%80%AFAM.png)
+
 A robust and reliable Node.js tool for recording BigBlueButton meeting playback sessions. This tool automatically captures both video and audio from BigBlueButton recordings and exports them into high-quality MP4 files, perfect for archiving or sharing.
 
 ## Why Use This Tool?
