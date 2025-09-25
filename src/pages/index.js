@@ -19,7 +19,22 @@ export default function Home() {
   const [status, setStatus] = useState('');
   const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
+  const [downloadUrl, setDownloadUrl] = useState(null);
+  const [downloadPath, setDownloadPath] = useState(null);
+  const [captureStrategy, setCaptureStrategy] = useState(null);
+  const [playbackRate, setPlaybackRate] = useState(null);
   const toast = useToast();
+
+  const playbackRateDisplay = (() => {
+    if (playbackRate === null || playbackRate === undefined) {
+      return null;
+    }
+    const numericValue = Number(playbackRate);
+    if (Number.isNaN(numericValue)) {
+      return null;
+    }
+    return `${numericValue.toFixed(2)}x playback`;
+  })();
 
   const steps = [
     'Preparing',
@@ -45,6 +60,13 @@ export default function Home() {
     try {
       setIsRecording(true);
       setStatus('Initiating recording...');
+      setProgress(0);
+      setCurrentStep(0);
+      setTotalSteps(0);
+      setDownloadUrl(null);
+      setDownloadPath(null);
+      setCaptureStrategy(null);
+      setPlaybackRate(null);
 
       const response = await fetch('/api/record', {
         method: 'POST',
@@ -61,12 +83,16 @@ export default function Home() {
       const { recordingId } = await response.json();
       setStatus('Recording initiated. Setting up browser...');
 
-      // Set up SSE for progress updates
-      const eventSource = new EventSource('/api/progress');
+      // Set up SSE for progress updates (scoped to this recording id)
+      const eventSource = new EventSource(`/api/progress?recordingId=${recordingId}`);
       
       eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
         
+        if (data.recordingId && recordingId && data.recordingId !== recordingId) {
+          return;
+        }
+
         if (data.type === 'progress') {
           if (data.progress !== undefined) {
             setProgress(data.progress);
@@ -81,7 +107,13 @@ export default function Home() {
             setStatus(data.message);
           }
 
-          // Handle video progress if available
+          if (data.captureStrategy) {
+            setCaptureStrategy(data.captureStrategy);
+          }
+          if (data.playbackRate) {
+            setPlaybackRate(data.playbackRate);
+          }
+
           if (data.currentTime && data.duration) {
             const videoProgress = Math.round((data.currentTime / data.duration) * 100);
             setStatus(`Recording in progress: ${videoProgress}% of video processed`);
@@ -92,9 +124,22 @@ export default function Home() {
           eventSource.close();
           setIsRecording(false);
           setProgress(100);
+          setStatus(data.message || 'Recording completed successfully');
+          if (data.downloadUrl) {
+            setDownloadUrl(data.downloadUrl);
+          }
+          if (data.filePath) {
+            setDownloadPath(data.filePath);
+          }
+          if (data.captureStrategy) {
+            setCaptureStrategy(data.captureStrategy);
+          }
+          if (data.playbackRate) {
+            setPlaybackRate(data.playbackRate);
+          }
           toast({
             title: 'Success',
-            description: 'Recording completed successfully',
+            description: data.message || 'Recording completed successfully',
             status: 'success',
             duration: 5000,
             isClosable: true,
@@ -103,6 +148,10 @@ export default function Home() {
           eventSource.close();
           setIsRecording(false);
           setProgress(0);
+          setStatus(data.message || 'Recording failed');
+          if (data.captureStrategy) {
+            setCaptureStrategy(data.captureStrategy);
+          }
           toast({
             title: 'Error',
             description: data.message || 'Recording failed',
@@ -117,6 +166,7 @@ export default function Home() {
         eventSource.close();
         setIsRecording(false);
         setProgress(0);
+        setStatus('Connection to server lost');
         toast({
           title: 'Error',
           description: 'Connection to server lost',
@@ -128,6 +178,7 @@ export default function Home() {
 
     } catch (error) {
       setIsRecording(false);
+      setStatus(error.message);
       toast({
         title: 'Error',
         description: error.message,
@@ -169,7 +220,14 @@ export default function Home() {
           <Box w="100%" p={4} borderRadius="md" borderWidth="1px">
             <VStack spacing={4} align="stretch">
               <Text fontWeight="bold">{status}</Text>
-              
+
+              {captureStrategy && (
+                <Text fontSize="sm" color="gray.600">
+                  Mode: {captureStrategy === 'displayMedia' ? 'Tab capture' : 'Direct stream'}
+                  {playbackRateDisplay ? ` · ${playbackRateDisplay}` : ''}
+                </Text>
+              )}
+
               {/* Overall progress */}
               <Box>
                 <Text mb={2} fontSize="sm" color="gray.600">
@@ -213,6 +271,34 @@ export default function Home() {
             <AlertIcon />
             {status}
           </Alert>
+        )}
+
+        {downloadUrl && (
+          <Box w="100%" p={4} borderRadius="md" borderWidth="1px">
+            <VStack spacing={3} align="stretch">
+              <Text fontWeight="semibold">Recording ready for download</Text>
+              {captureStrategy && (
+                <Text fontSize="sm" color="gray.600">
+                  Mode: {captureStrategy === 'displayMedia' ? 'Tab capture' : 'Direct stream'}
+                  {playbackRateDisplay ? ` · ${playbackRateDisplay}` : ''}
+                </Text>
+              )}
+              <Button
+                as="a"
+                href={downloadUrl}
+                colorScheme="green"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Download MP4
+              </Button>
+              {downloadPath && (
+                <Text fontSize="sm" color="gray.600">
+                  Saved locally at: {downloadPath}
+                </Text>
+              )}
+            </VStack>
+          </Box>
         )}
       </VStack>
     </Container>

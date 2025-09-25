@@ -15,8 +15,24 @@ if (!global.progressClients) {
 }
 
 function broadcastProgress(data) {
+    if (!global.progressClients) {
+        return;
+    }
+
     global.progressClients.forEach(client => {
-        client.write(`data: ${JSON.stringify(data)}\n\n`);
+        const { res, recordingId } = client;
+        try {
+            if (recordingId && data.recordingId && recordingId !== data.recordingId) {
+                return;
+            }
+            res.write(`data: ${JSON.stringify(data)}\n\n`);
+        } catch (error) {
+            console.error('Failed to broadcast progress:', error);
+            if (client.heartbeat) {
+                clearInterval(client.heartbeat);
+            }
+            global.progressClients.delete(client);
+        }
     });
 }
 
@@ -39,14 +55,19 @@ export default async function handler(req, res) {
         
         // Set up progress and error callbacks before starting
         recorder.setCallbacks(
-            (type, data) => {
-                broadcastProgress({ type, ...data });
+            (type, data = {}) => {
+                broadcastProgress({ recordingId, type, ...data });
+                if (type === 'complete') {
+                    global.activeRecorders.delete(recordingId);
+                }
             },
             (error) => {
-                console.error('Recording error:', error);
+                const message = typeof error === 'string' ? error : error?.message || 'Recording failed';
+                console.error('Recording error:', message);
                 broadcastProgress({ 
+                    recordingId,
                     type: 'error', 
-                    message: error 
+                    message
                 });
                 global.activeRecorders.delete(recordingId);
             }
@@ -63,6 +84,7 @@ export default async function handler(req, res) {
             .catch(error => {
                 console.error('Recording error:', error);
                 broadcastProgress({ 
+                    recordingId,
                     type: 'error', 
                     message: error.message 
                 });

@@ -69,6 +69,14 @@ A robust and reliable Node.js tool for recording BigBlueButton meeting playback 
    - Show real-time progress
    - Convert/Export the final MP4 file in the current directory
 
+### Speeding up exports
+
+Large webinars can take a long time to play back. The UI/API recorder automatically attempts to play meetings at 1.25x speed. You can adjust this with the `BBB_PLAYBACK_RATE` environment variable (valid range `0.5` – `2.0`). Example:
+
+```bash
+BBB_PLAYBACK_RATE=1.75 npm run dev
+```
+
 ## Output
 
 The recorder generates:
