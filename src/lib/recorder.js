@@ -359,30 +359,39 @@ class Recorder {
             captureStream.getVideoTracks().forEach((track) => finalStream.addTrack(track));
 
             let audioAdded = false;
-            const audioTracks = captureStream.getAudioTracks ? captureStream.getAudioTracks() : [];
-            if (audioTracks.length) {
-                audioTracks.forEach((track) => {
-                    finalStream.addTrack(track);
-                    audioAdded = true;
-                });
-            }
+            const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
 
-            if (!audioAdded) {
-                const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
-                if (AudioContextConstructor) {
+            if (AudioContextConstructor) {
+                try {
                     const audioContext = new AudioContextConstructor();
                     if (audioContext.state === 'suspended') {
                         await audioContext.resume();
                     }
+
                     const destination = audioContext.createMediaStreamDestination();
                     const source = audioContext.createMediaElementSource(video);
                     source.connect(destination);
                     source.connect(audioContext.destination);
+
+                    window.__bbbRecorderAudioContext = audioContext;
+                    window.__bbbRecorderAudioSource = source;
+                    window.__bbbRecorderAudioDestination = destination;
+
                     destination.stream.getAudioTracks().forEach((track) => {
                         finalStream.addTrack(track);
                         audioAdded = true;
                     });
+                } catch (audioErr) {
+                    console.warn('Failed to capture audio from media element:', audioErr);
                 }
+            }
+
+            if (!audioAdded) {
+                const audioTracks = captureStream.getAudioTracks ? captureStream.getAudioTracks() : [];
+                audioTracks.forEach((track) => {
+                    finalStream.addTrack(track);
+                    audioAdded = true;
+                });
             }
 
             window.mediaRecorder = new MediaRecorder(finalStream, {
@@ -579,6 +588,25 @@ class Recorder {
                             console.warn('Failed to stop capture tracks:', streamErr);
                         }
                         window.__bbbRecorderStream = null;
+                    }
+                    if (window.__bbbRecorderAudioSource) {
+                        try {
+                            window.__bbbRecorderAudioSource.disconnect();
+                        } catch (disconnectErr) {
+                            console.warn('Failed to disconnect audio source:', disconnectErr);
+                        }
+                        window.__bbbRecorderAudioSource = null;
+                    }
+                    if (window.__bbbRecorderAudioDestination) {
+                        window.__bbbRecorderAudioDestination = null;
+                    }
+                    if (window.__bbbRecorderAudioContext) {
+                        try {
+                            window.__bbbRecorderAudioContext.close();
+                        } catch (ctxErr) {
+                            console.warn('Failed to close audio context:', ctxErr);
+                        }
+                        window.__bbbRecorderAudioContext = null;
                     }
                 });
             }
