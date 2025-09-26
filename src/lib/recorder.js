@@ -35,10 +35,10 @@ class Recorder {
         this.isStopping = false;
         this.lastChunkPromise = Promise.resolve();
         this.sessionId = null;
-        const rateFromEnv = parseFloat(process.env.BBB_PLAYBACK_RATE || '1.25');
+        const rateFromEnv = parseFloat(process.env.BBB_PLAYBACK_RATE || '1.0');
         this.playbackRate = Number.isFinite(rateFromEnv) && rateFromEnv > 0
             ? Math.min(2, Math.max(0.5, rateFromEnv))
-            : 1.25;
+            : 1.0;
         this.captureStrategy = 'captureStream';
     }
 
@@ -194,19 +194,11 @@ class Recorder {
 
         const styleContent = `
             body, html {
-                margin: 0 !important;
-                padding: 0 !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                overflow: hidden !important;
                 background: #000 !important;
             }
-            .video-js, video {
-                width: 100vw !important;
-                height: 100vh !important;
-                max-width: none !important;
-                max-height: none !important;
-                object-fit: contain !important;
+            .top-bar, .bottom-bar, .control-bar {
+                opacity: 0 !important;
+                pointer-events: none !important;
             }
         `;
 
@@ -326,32 +318,36 @@ class Recorder {
                 return null;
             };
 
-            let captureStream = tryCaptureStream();
-            let strategy = 'captureStream';
+            let captureStream = null;
+            let strategy = 'displayMedia';
 
             const ensureHasVideo = (stream) => stream && stream.getVideoTracks && stream.getVideoTracks().length;
 
-            if (!ensureHasVideo(captureStream)) {
-                strategy = 'displayMedia';
-                try {
-                    captureStream = await navigator.mediaDevices.getDisplayMedia({
-                        video: {
-                            frameRate: { ideal: 60, max: 60 },
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 },
-                            displaySurface: 'browser'
-                        },
-                        audio: {
-                            echoCancellation: false,
-                            noiseSuppression: false,
-                            channelCount: 2,
-                            sampleRate: 48000,
-                            sampleSize: 16
-                        }
-                    });
-                } catch (err) {
-                    console.warn('getDisplayMedia failed:', err);
+            const requestDisplayMedia = async () => navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    frameRate: { ideal: 60, max: 60 },
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    displaySurface: 'browser'
+                },
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    channelCount: 2,
+                    sampleRate: 48000,
+                    sampleSize: 16
                 }
+            });
+
+            try {
+                captureStream = await requestDisplayMedia();
+            } catch (err) {
+                console.warn('getDisplayMedia failed, falling back to direct capture:', err);
+            }
+
+            if (!ensureHasVideo(captureStream)) {
+                captureStream = tryCaptureStream();
+                strategy = 'captureStream';
             }
 
             if (!ensureHasVideo(captureStream)) {
@@ -371,7 +367,7 @@ class Recorder {
                 });
             }
 
-            if (!audioAdded && strategy === 'captureStream') {
+            if (!audioAdded) {
                 const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
                 if (AudioContextConstructor) {
                     const audioContext = new AudioContextConstructor();
