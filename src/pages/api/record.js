@@ -1,10 +1,5 @@
 import Recorder from '../../lib/recorder';
 
-// Store active recorders
-if (!global.activeRecorders) {
-    global.activeRecorders = new Map();
-}
-
 // Initialize global state
 if (!global.activeRecorders) {
     global.activeRecorders = new Map();
