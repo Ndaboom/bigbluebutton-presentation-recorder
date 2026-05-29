@@ -40,9 +40,10 @@ A robust and reliable Node.js tool for recording BigBlueButton meeting playback 
 
 ## Requirements
 
-- Node.js 14.x or higher
-- FFmpeg installed and available in PATH
-- Chrome or Chromium browser
+- Node.js 18.17 or higher
+- npm
+
+`npm install` installs the application runtime dependencies, including Puppeteer's managed browser and the bundled FFmpeg binary used for MP4 conversion. If you prefer a system FFmpeg binary, set `FFMPEG_PATH` to its executable path.
 
 ## Installation
 
@@ -75,7 +76,7 @@ A robust and reliable Node.js tool for recording BigBlueButton meeting playback 
 
 1. Run the recorder(console mode):
    ```bash
-   node record_meeting.js
+   npm run record
    ```
 
 2. The tool will:

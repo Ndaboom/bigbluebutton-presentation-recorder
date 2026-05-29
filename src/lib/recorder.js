@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
 const { spawn } = require('child_process');
+const { resolveFFmpegPath } = require('./ffmpeg');
 
 const BASE_TEMP_DIR = path.join(process.cwd(), 'temp_chunks');
 const EXPORT_DIR = path.join(process.cwd(), 'public', 'exports');
@@ -681,6 +682,9 @@ class Recorder {
             });
         }
 
+        const ffmpegPath = resolveFFmpegPath();
+        this.updateProgress(`Using FFmpeg: ${ffmpegPath}`);
+
         await new Promise((resolve, reject) => {
             const ffmpegArgs = [
                 '-y',
@@ -694,7 +698,7 @@ class Recorder {
                 this.outputMP4
             ];
 
-            const ffmpeg = spawn('ffmpeg', ffmpegArgs, { stdio: ['ignore', 'ignore', 'pipe'] });
+            const ffmpeg = spawn(ffmpegPath, ffmpegArgs, { stdio: ['ignore', 'ignore', 'pipe'] });
 
             let stderr = '';
             ffmpeg.stderr.on('data', (data) => {

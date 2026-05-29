@@ -3,6 +3,7 @@ const path = require('path');
 const puppeteer = require('puppeteer');
 const { spawn } = require('child_process');
 const readline = require('readline');
+const { resolveFFmpegPath } = require('./src/lib/ffmpeg');
 
 // Create readline interface
 const rl = readline.createInterface({
@@ -87,8 +88,10 @@ async function stopRecording(page, browser, isPartial = false) {
 
         // Convert WebM to MP4 using FFmpeg
         console.log('Converting to MP4...');
+        const ffmpegPath = resolveFFmpegPath();
+        console.log(`Using FFmpeg: ${ffmpegPath}`);
         await new Promise((resolve, reject) => {
-            const ffmpeg = spawn('ffmpeg', [
+            const ffmpeg = spawn(ffmpegPath, [
                 '-i', path.join(TEMP_DIR, 'output.webm'),
                 '-c:v', 'libx264',     // Transcode video to H.264
                 '-c:a', 'aac',         // Transcode audio to AAC
@@ -252,8 +255,10 @@ async function stopRecording(page, browser, isPartial = false) {
 
         // Convert WebM to MP4 using FFmpeg
         console.log('Converting WebM to MP4...');
+        const fallbackFFmpegPath = resolveFFmpegPath();
+        console.log(`Using FFmpeg: ${fallbackFFmpegPath}`);
         await new Promise((resolve, reject) => {
-            const ffmpeg = spawn('ffmpeg', [
+            const ffmpeg = spawn(fallbackFFmpegPath, [
                 '-i', webmPath,
                 '-c:v', 'libx264',     // Use H.264 codec for video
                 '-preset', 'slow',     // Better compression
