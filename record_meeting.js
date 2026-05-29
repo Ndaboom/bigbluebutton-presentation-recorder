@@ -1,27 +1,33 @@
 const readline = require('readline');
 const Recorder = require('./src/lib/recorder');
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+function createReadlineInterface() {
+    return readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+}
 
-function ask(question) {
+function ask(rl, question) {
     return new Promise((resolve) => {
         rl.question(question, (answer) => resolve(answer.trim()));
     });
 }
 
-async function getMeetingUrl() {
+function isValidMeetingUrl(url) {
+    return url.startsWith('http://') || url.startsWith('https://');
+}
+
+async function getMeetingUrl(rl) {
     while (true) {
-        const url = await ask('Enter the BigBlueButton recording URL: ');
+        const url = await ask(rl, 'Enter the BigBlueButton recording URL: ');
 
         if (!url) {
             console.log('URL cannot be empty. Please try again.');
             continue;
         }
 
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        if (!isValidMeetingUrl(url)) {
             console.log('Please enter a valid URL starting with http:// or https://');
             continue;
         }
@@ -37,6 +43,7 @@ function formatBytes(bytes) {
 
 async function main() {
     const recorder = new Recorder();
+    const rl = createReadlineInterface();
     let stopping = false;
     let finishRecording;
     const recordingFinished = new Promise((resolve) => {
@@ -95,7 +102,7 @@ async function main() {
     });
 
     try {
-        const meetingUrl = await getMeetingUrl();
+        const meetingUrl = await getMeetingUrl(rl);
         rl.close();
 
         console.log(`Starting recording for: ${meetingUrl}`);
@@ -109,4 +116,11 @@ async function main() {
     }
 }
 
-main();
+if (require.main === module) {
+    main();
+}
+
+module.exports = {
+    formatBytes,
+    isValidMeetingUrl
+};

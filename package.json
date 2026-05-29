@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "record": "node record_meeting.js"
+    "record": "node record_meeting.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18.17.0"
