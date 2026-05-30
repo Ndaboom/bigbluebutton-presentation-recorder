@@ -17,6 +17,10 @@ const getTimestamp = () => new Date().toISOString().replace(/[:.]/g, '-');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const FFMPEG_PRESET = 'veryfast';
+const FFMPEG_CRF = '23';
+const FFMPEG_AUDIO_BITRATE = '192k';
+
 class Recorder {
     constructor() {
         this.browser = null;
@@ -36,10 +40,6 @@ class Recorder {
         this.isStopping = false;
         this.lastChunkPromise = Promise.resolve();
         this.sessionId = null;
-        const rateFromEnv = parseFloat(process.env.BBB_PLAYBACK_RATE || '1.0');
-        this.playbackRate = Number.isFinite(rateFromEnv) && rateFromEnv > 0
-            ? Math.min(2, Math.max(0.5, rateFromEnv))
-            : 1.0;
         this.captureStrategy = 'captureStream';
     }
 
@@ -140,14 +140,12 @@ class Recorder {
             this.updateProgress('Configuring recorder...', 0);
             await this.setupRecording();
             this.updateProgress('Recorder configured', 100, {
-                captureStrategy: this.captureStrategy,
-                playbackRate: this.playbackRate
+                captureStrategy: this.captureStrategy
             });
 
             this.currentStep = 5;
             this.updateProgress('Recording started', 10, {
-                captureStrategy: this.captureStrategy,
-                playbackRate: this.playbackRate
+                captureStrategy: this.captureStrategy
             });
             this.startRecordingMonitor();
         } catch (error) {
@@ -292,14 +290,6 @@ class Recorder {
                 console.warn('Automatic playback failed:', error);
             }
 
-            if (desiredPlaybackRate && Number.isFinite(desiredPlaybackRate)) {
-                try {
-                    video.playbackRate = desiredPlaybackRate;
-                } catch (err) {
-                    console.warn('Failed to apply custom playback rate:', err);
-                }
-            }
-
             const tryCaptureStream = () => {
                 if (video.captureStream) {
                     try {
@@ -420,10 +410,9 @@ class Recorder {
             window.mediaRecorder.start(5000);
             return {
                 started: true,
-                strategy,
-                playbackRate: video.playbackRate
+                strategy
             };
-        }, this.playbackRate);
+        });
 
         if (!recordingResult?.started) {
             throw new Error('Failed to start recording');
@@ -436,7 +425,7 @@ class Recorder {
                 ? 'Recording via tab capture'
                 : 'Recording via direct media capture',
             70,
-            { captureStrategy: this.captureStrategy, playbackRate: recordingResult.playbackRate }
+            { captureStrategy: this.captureStrategy }
         );
 
         await this.ensureVideoPlaying();
@@ -447,7 +436,7 @@ class Recorder {
 
         const retries = 5;
         for (let attempt = 0; attempt < retries; attempt += 1) {
-            const playing = await this.page.evaluate(async (desiredRate) => {
+            const playing = await this.page.evaluate(async () => {
                 const video = document.querySelector('video');
                 if (!video) return false;
 
@@ -462,18 +451,11 @@ class Recorder {
                     console.warn('Retrying playback after failure:', error);
                 }
 
-                if (desiredRate && Number.isFinite(desiredRate)) {
-                    try {
-                        video.playbackRate = desiredRate;
-                    } catch (err) {
-                        console.warn('Failed to apply playback rate during retry:', err);
-                    }
-                }
                 video.muted = false;
                 video.volume = 1.0;
 
                 return !video.paused;
-            }, this.playbackRate);
+            });
 
             if (playing) {
                 return;
@@ -517,14 +499,13 @@ class Recorder {
 
                 if (this.progressCallback) {
                     this.progressCallback('progress', {
-                        message: `Recording in progress (${playbackPercent}% of playback at ${this.playbackRate}x)`,
+                        message: `Recording in progress (${playbackPercent}% of playback)`,
                         currentTime,
                         duration,
                         progress: Math.min(99, playbackPercent),
                         step: this.totalSteps - 1,
                         totalSteps: this.totalSteps,
-                        captureStrategy: this.captureStrategy,
-                        playbackRate: this.playbackRate
+                        captureStrategy: this.captureStrategy
                     });
                 }
 
@@ -654,8 +635,7 @@ class Recorder {
                     message: 'Recording completed successfully',
                     filePath: outputPath,
                     downloadUrl: this.publicDownloadUrl,
-                    captureStrategy: this.captureStrategy,
-                    playbackRate: this.playbackRate
+                    captureStrategy: this.captureStrategy
                 });
             }
         } catch (conversionError) {
@@ -690,10 +670,11 @@ class Recorder {
                 '-y',
                 '-i', this.outputWebM,
                 '-c:v', 'libx264',
-                '-preset', 'medium',
-                '-crf', '23',
+                '-preset', FFMPEG_PRESET,
+                '-crf', FFMPEG_CRF,
+                '-threads', '0',
                 '-c:a', 'aac',
-                '-b:a', '192k',
+                '-b:a', FFMPEG_AUDIO_BITRATE,
                 '-movflags', '+faststart',
                 this.outputMP4
             ];

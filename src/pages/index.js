@@ -22,19 +22,7 @@ export default function Home() {
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [downloadPath, setDownloadPath] = useState(null);
   const [captureStrategy, setCaptureStrategy] = useState(null);
-  const [playbackRate, setPlaybackRate] = useState(null);
   const toast = useToast();
-
-  const playbackRateDisplay = (() => {
-    if (playbackRate === null || playbackRate === undefined) {
-      return null;
-    }
-    const numericValue = Number(playbackRate);
-    if (Number.isNaN(numericValue)) {
-      return null;
-    }
-    return `${numericValue.toFixed(2)}x playback`;
-  })();
 
   const steps = [
     'Preparing',
@@ -66,7 +54,6 @@ export default function Home() {
       setDownloadUrl(null);
       setDownloadPath(null);
       setCaptureStrategy(null);
-      setPlaybackRate(null);
 
       const response = await fetch('/api/record', {
         method: 'POST',
@@ -110,10 +97,6 @@ export default function Home() {
           if (data.captureStrategy) {
             setCaptureStrategy(data.captureStrategy);
           }
-          if (data.playbackRate) {
-            setPlaybackRate(data.playbackRate);
-          }
-
           if (data.currentTime && data.duration) {
             const videoProgress = Math.round((data.currentTime / data.duration) * 100);
             setStatus(`Recording in progress: ${videoProgress}% of video processed`);
@@ -133,9 +116,6 @@ export default function Home() {
           }
           if (data.captureStrategy) {
             setCaptureStrategy(data.captureStrategy);
-          }
-          if (data.playbackRate) {
-            setPlaybackRate(data.playbackRate);
           }
           toast({
             title: 'Success',
@@ -204,7 +184,7 @@ export default function Home() {
             isDisabled={isRecording}
             mb={4}
           />
-          
+
           <Button
             colorScheme="blue"
             onClick={startRecording}
@@ -224,7 +204,6 @@ export default function Home() {
               {captureStrategy && (
                 <Text fontSize="sm" color="gray.600">
                   Mode: {captureStrategy === 'displayMedia' ? 'Tab capture' : 'Direct stream'}
-                  {playbackRateDisplay ? ` · ${playbackRateDisplay}` : ''}
                 </Text>
               )}
 
@@ -280,7 +259,6 @@ export default function Home() {
               {captureStrategy && (
                 <Text fontSize="sm" color="gray.600">
                   Mode: {captureStrategy === 'displayMedia' ? 'Tab capture' : 'Direct stream'}
-                  {playbackRateDisplay ? ` · ${playbackRateDisplay}` : ''}
                 </Text>
               )}
               <Button

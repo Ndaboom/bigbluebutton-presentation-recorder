@@ -22,7 +22,7 @@ A robust and reliable Node.js tool for recording BigBlueButton meeting playback 
 
 - **Professional Media Processing**:
   - High-quality H.264/AAC encoding
-  - Optimized FFmpeg settings for best quality
+  - Optimized FFmpeg settings for reliable MP4 export
   - Fast start optimization for streaming
   - Proper audio/video synchronization
 
@@ -84,21 +84,14 @@ A robust and reliable Node.js tool for recording BigBlueButton meeting playback 
    - Open the recording in a headless browser
    - Start playback automatically
    - Show real-time progress
-   - Convert/Export the final MP4 file in the current directory
-
-### Speeding up exports
-
-Large webinars can take a long time to play back. The UI/API recorder automatically attempts to play meetings at 1.25x speed. You can adjust this with the `BBB_PLAYBACK_RATE` environment variable (valid range `0.5` – `2.0`). Example:
-
-```bash
-BBB_PLAYBACK_RATE=1.75 npm run dev
-```
+   - Convert/export the final MP4 file under `public/exports`
 
 ## Output
 
 The recorder generates:
 - High-quality MP4 file with H.264 video and AAC audio
 - Filename format: `meeting_YYYY-MM-DDTHH-mm-ss-mmmZ.mp4`
+- Output directory: `public/exports`
 - Progress updates in the console
 
 ## Progress Reporting:
@@ -118,9 +111,10 @@ The tool provides detailed progress information:
    - Ensure you have proper permissions to view the recording
 
 2. **FFmpeg Errors**
-   - Verify FFmpeg is installed and in PATH
+   - Run `npm install` to install the bundled FFmpeg binary
+   - Or set `FFMPEG_PATH` to a system FFmpeg executable
    - Check available disk space
-   - Ensure write permissions in output directory
+   - Ensure write permissions in `public/exports`
 
 3. **Memory Issues**
    - The tool uses progressive saving to handle large recordings
@@ -131,7 +125,14 @@ The tool provides detailed progress information:
 
 For detailed logging, set the DEBUG environment variable:
 ```bash
-DEBUG=1 node record_meeting.js
+DEBUG=1 npm run record
+```
+
+### Tests
+
+Run the test suite with:
+```bash
+npm test
 ```
 
 ## Contributing
