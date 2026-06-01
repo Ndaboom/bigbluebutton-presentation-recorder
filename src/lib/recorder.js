@@ -17,9 +17,31 @@ const getTimestamp = () => new Date().toISOString().replace(/[:.]/g, '-');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const FFMPEG_PRESET = 'veryfast';
+const FFMPEG_PRESET = 'ultrafast';
 const FFMPEG_CRF = '23';
 const FFMPEG_AUDIO_BITRATE = '192k';
+
+const parseFfmpegTimestamp = (timestamp) => {
+    const match = timestamp.match(/^(\d+):(\d+):(\d+(?:\.\d+)?)$/);
+    if (!match) return null;
+
+    const [, hours, minutes, seconds] = match;
+    return (Number(hours) * 3600) + (Number(minutes) * 60) + Number(seconds);
+};
+
+const formatDuration = (seconds) => {
+    if (!Number.isFinite(seconds) || seconds <= 0) return 'calculating';
+
+    const rounded = Math.ceil(seconds);
+    const minutes = Math.floor(rounded / 60);
+    const remainingSeconds = rounded % 60;
+
+    if (minutes > 0) {
+        return `${minutes}m ${remainingSeconds}s`;
+    }
+
+    return `${remainingSeconds}s`;
+};
 
 class Recorder {
     constructor() {
@@ -40,6 +62,9 @@ class Recorder {
         this.isStopping = false;
         this.lastChunkPromise = Promise.resolve();
         this.sessionId = null;
+        this.lastPlaybackTime = 0;
+        this.lastPlaybackProgressAt = Date.now();
+        this.maxPlaybackStallMs = 5 * 60 * 1000;
         this.captureStrategy = 'captureStream';
     }
 
@@ -106,6 +131,9 @@ class Recorder {
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding',
                     '--autoplay-policy=no-user-gesture-required',
                     '--use-fake-ui-for-media-stream',
                     '--enable-usermedia-screen-capturing',
@@ -399,11 +427,9 @@ class Recorder {
             window.mediaRecorder.ondataavailable = async (event) => {
                 if (!event.data || !event.data.size) return;
                 const uint8array = new Uint8Array(await event.data.arrayBuffer());
-                try {
-                    await window.saveChunk(Array.from(uint8array));
-                } catch (error) {
+                window.saveChunk(Array.from(uint8array)).catch((error) => {
                     console.error('Failed to forward recording chunk:', error);
-                }
+                });
             };
 
             window.__bbbRecorderStream = captureStream;
@@ -471,6 +497,9 @@ class Recorder {
         if (!this.page) return;
 
         const interval = 5000;
+        this.lastPlaybackTime = 0;
+        this.lastPlaybackProgressAt = Date.now();
+
         this.monitorInterval = setInterval(async () => {
             if (this.isStopping) return;
 
@@ -496,6 +525,17 @@ class Recorder {
 
                 const { currentTime, duration, ended } = status;
                 const playbackPercent = duration ? Math.min(100, Math.round((currentTime / duration) * 100)) : 0;
+                const now = Date.now();
+
+                if (currentTime > this.lastPlaybackTime + 0.25) {
+                    this.lastPlaybackTime = currentTime;
+                    this.lastPlaybackProgressAt = now;
+                } else if (now - this.lastPlaybackProgressAt > this.maxPlaybackStallMs) {
+                    const error = new Error('Video playback appears to be stalled');
+                    if (this.errorCallback) this.errorCallback(error.message);
+                    await this.stopRecording({ error });
+                    return;
+                }
 
                 if (this.progressCallback) {
                     this.progressCallback('progress', {
@@ -682,12 +722,36 @@ class Recorder {
             const ffmpeg = spawn(ffmpegPath, ffmpegArgs, { stdio: ['ignore', 'ignore', 'pipe'] });
 
             let stderr = '';
+            let inputDurationSeconds = null;
+            const conversionStartedAt = Date.now();
             ffmpeg.stderr.on('data', (data) => {
                 const message = data.toString();
                 stderr += message;
 
+                const durationMatch = message.match(/Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)/);
+                if (durationMatch) {
+                    inputDurationSeconds = parseFfmpegTimestamp(durationMatch[1]);
+                }
+
                 const timeMatch = message.match(/time=(\d+:\d+:\d+\.\d+)/);
                 if (timeMatch && this.progressCallback) {
+                    const encodedSeconds = parseFfmpegTimestamp(timeMatch[1]);
+                    if (inputDurationSeconds && encodedSeconds !== null) {
+                        const conversionPercent = Math.min(99, Math.max(0, Math.round((encodedSeconds / inputDurationSeconds) * 100)));
+                        const elapsedSeconds = (Date.now() - conversionStartedAt) / 1000;
+                        const etaSeconds = conversionPercent > 0
+                            ? (elapsedSeconds / conversionPercent) * (100 - conversionPercent)
+                            : null;
+
+                        this.progressCallback('progress', {
+                            message: `Converting to MP4... ${conversionPercent}% (ETA ${formatDuration(etaSeconds)})`,
+                            progress: Math.min(99, 90 + Math.round(conversionPercent * 0.09)),
+                            step: this.totalSteps,
+                            totalSteps: this.totalSteps
+                        });
+                        return;
+                    }
+
                     this.progressCallback('progress', {
                         message: `FFmpeg processing... ${timeMatch[1]}`
                     });
@@ -734,3 +798,5 @@ class Recorder {
 }
 
 module.exports = Recorder;
+module.exports.parseFfmpegTimestamp = parseFfmpegTimestamp;
+module.exports.formatDuration = formatDuration;
