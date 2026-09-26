@@ -88,6 +88,23 @@ The recorder supports Windows, macOS, and Linux on architectures supported by No
    - Show real-time progress
    - Convert/export the final MP4 file under `public/exports`
 
+### Convert an existing WebM
+
+If recording completed but MP4 conversion failed, convert the preserved WebM without replaying the meeting:
+
+```bash
+npm run record -- --convert temp_chunks/output.webm
+```
+
+The MP4 is written beside the input file by default. Choose another destination with:
+
+```bash
+npm run record -- --convert temp_chunks/output.webm --output public/exports/recovered-meeting.mp4
+```
+
+The source WebM is never deleted by conversion-only mode.
+Recording mode also preserves a non-empty `temp_chunks/recording_<timestamp>.webm` whenever recording or MP4 conversion fails and prints its exact path in the error message.
+
 ## Output
 
 The recorder generates:

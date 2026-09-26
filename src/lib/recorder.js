@@ -50,6 +50,7 @@ const assertSupportedRuntimeArchitecture = (options) => {
 const FFMPEG_PRESET = 'ultrafast';
 const FFMPEG_CRF = '23';
 const FFMPEG_AUDIO_BITRATE = '192k';
+const FFMPEG_OUTPUT_FPS = '30';
 
 const parseFfmpegTimestamp = (timestamp) => {
     const match = timestamp.match(/^(\d+):(\d+):(\d+(?:\.\d+)?)$/);
@@ -695,13 +696,26 @@ class Recorder {
         this.page = null;
 
         if (error) {
-            if (this.errorCallback) this.errorCallback(error.message || String(error));
-            this.cleanupTempFiles();
+            const recoverablePath = this.getRecoverableWebMPath();
+            const message = error.message || String(error);
+            if (recoverablePath) {
+                console.error(`Recording data preserved at: ${recoverablePath}`);
+            } else {
+                this.cleanupTempFiles();
+            }
+            if (this.errorCallback) {
+                this.errorCallback(
+                    recoverablePath
+                        ? `${message}. WebM preserved at: ${recoverablePath}`
+                        : message
+                );
+            }
             return;
         }
 
         try {
             const outputPath = await this.convertToMP4();
+            this.cleanupTempFiles();
             if (this.progressCallback) {
                 this.progressCallback('complete', {
                     message: 'Recording completed successfully',
@@ -712,18 +726,45 @@ class Recorder {
             }
         } catch (conversionError) {
             console.error('Conversion error:', conversionError);
-            if (this.errorCallback) this.errorCallback(conversionError.message);
-        } finally {
-            this.cleanupTempFiles();
+            const recoverablePath = this.getRecoverableWebMPath();
+            if (recoverablePath) {
+                console.error(`Recording data preserved at: ${recoverablePath}`);
+            }
+            if (this.errorCallback) {
+                this.errorCallback(
+                    recoverablePath
+                        ? `${conversionError.message}. WebM preserved at: ${recoverablePath}`
+                        : conversionError.message
+                );
+            }
         }
     }
 
-    async convertToMP4() {
-        if (!this.outputWebM || !fs.existsSync(this.outputWebM)) {
+    async convertWebMFile(inputPath, outputPath) {
+        const resolvedInputPath = path.resolve(inputPath);
+        const parsedInputPath = path.parse(resolvedInputPath);
+        const resolvedOutputPath = outputPath
+            ? path.resolve(outputPath)
+            : path.join(parsedInputPath.dir, `${parsedInputPath.name}.mp4`);
+
+        if (resolvedInputPath === resolvedOutputPath) {
+            throw new Error('Input and output paths must be different');
+        }
+
+        ensureDir(path.dirname(resolvedOutputPath));
+        return this.convertToMP4(resolvedInputPath, resolvedOutputPath);
+    }
+
+    async convertToMP4(inputPath = this.outputWebM, outputPath = this.outputMP4) {
+        if (!inputPath || !fs.existsSync(inputPath)) {
             throw new Error('No recording data found to convert');
         }
 
-        const stats = fs.statSync(this.outputWebM);
+        if (!outputPath) {
+            throw new Error('No MP4 output path was provided');
+        }
+
+        const stats = fs.statSync(inputPath);
         if (!stats.size) {
             throw new Error('Recorded file is empty');
         }
@@ -740,7 +781,8 @@ class Recorder {
         await new Promise((resolve, reject) => {
             const ffmpegArgs = [
                 '-y',
-                '-i', this.outputWebM,
+                '-i', inputPath,
+                '-vf', `fps=${FFMPEG_OUTPUT_FPS}`,
                 '-c:v', 'libx264',
                 '-preset', FFMPEG_PRESET,
                 '-crf', FFMPEG_CRF,
@@ -748,7 +790,7 @@ class Recorder {
                 '-c:a', 'aac',
                 '-b:a', FFMPEG_AUDIO_BITRATE,
                 '-movflags', '+faststart',
-                this.outputMP4
+                outputPath
             ];
 
             const ffmpeg = spawn(ffmpegPath, ffmpegArgs, { stdio: ['ignore', 'ignore', 'pipe'] });
@@ -815,7 +857,7 @@ class Recorder {
             });
         });
 
-        return this.outputMP4;
+        return outputPath;
     }
 
     cleanupTempFiles() {
@@ -825,6 +867,16 @@ class Recorder {
             }
         } catch (error) {
             console.warn('Failed to remove temporary recording file:', error.message);
+        }
+    }
+
+    getRecoverableWebMPath() {
+        if (!this.outputWebM || !fs.existsSync(this.outputWebM)) return null;
+
+        try {
+            return fs.statSync(this.outputWebM).size > 0 ? this.outputWebM : null;
+        } catch {
+            return null;
         }
     }
 }

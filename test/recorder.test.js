@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const Recorder = require('../src/lib/recorder');
 const {
     assertSupportedRuntimeArchitecture,
@@ -70,5 +73,22 @@ test('architecture check does not restrict Linux or Windows', () => {
 
         assert.equal(isAppleSiliconHostUsingIntelNode(options), false);
         assert.doesNotThrow(() => assertSupportedRuntimeArchitecture(options));
+    }
+});
+
+test('getRecoverableWebMPath returns only a non-empty recording file', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bbb-recovery-test-'));
+    const webmPath = path.join(tempDir, 'recording.webm');
+    const recorder = new Recorder();
+    recorder.outputWebM = webmPath;
+
+    try {
+        assert.equal(recorder.getRecoverableWebMPath(), null);
+        fs.writeFileSync(webmPath, '');
+        assert.equal(recorder.getRecoverableWebMPath(), null);
+        fs.writeFileSync(webmPath, 'recoverable recording data');
+        assert.equal(recorder.getRecoverableWebMPath(), webmPath);
+    } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
