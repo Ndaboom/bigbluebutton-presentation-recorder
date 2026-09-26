@@ -41,7 +41,7 @@ A Node.js tool for capturing BigBlueButton meeting playback sessions and exporti
 
 ## Requirements
 
-- Node.js 20.9 or higher
+- Node.js 22.12 or higher
 - npm
 
 The recorder supports Windows, macOS, and Linux on architectures supported by Node.js, Puppeteer, and `ffmpeg-static`. Install dependencies on the target computer so npm selects the correct native browser and FFmpeg binaries for that operating system and architecture.
