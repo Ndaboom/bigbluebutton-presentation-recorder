@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 function isExecutable(filePath) {
     try {
@@ -8,6 +9,17 @@ function isExecutable(filePath) {
     } catch {
         return false;
     }
+}
+
+function isUsableFFmpeg(filePath) {
+    if (!isExecutable(filePath)) return false;
+
+    const result = spawnSync(filePath, ['-version'], {
+        stdio: 'ignore',
+        timeout: 5000,
+        windowsHide: true
+    });
+    return !result.error && result.status === 0;
 }
 
 function resolveFFmpegPath() {
@@ -38,10 +50,10 @@ function resolveFFmpegPath() {
         '/opt/homebrew/bin/ffmpeg'
     );
 
-    const ffmpegPath = candidates.find((candidate) => candidate && isExecutable(candidate));
+    const ffmpegPath = candidates.find((candidate) => candidate && isUsableFFmpeg(candidate));
     if (!ffmpegPath) {
         throw new Error(
-            'FFmpeg executable not found. Install dependencies with npm install, install ffmpeg, or set FFMPEG_PATH to the ffmpeg binary.'
+            'A working FFmpeg executable was not found. Reinstall dependencies with npm install, install ffmpeg, or set FFMPEG_PATH to a valid ffmpeg binary.'
         );
     }
 
@@ -49,5 +61,6 @@ function resolveFFmpegPath() {
 }
 
 module.exports = {
+    isUsableFFmpeg,
     resolveFFmpegPath
 };

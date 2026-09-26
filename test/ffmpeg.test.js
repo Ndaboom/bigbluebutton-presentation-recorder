@@ -3,7 +3,7 @@ const os = require('os');
 const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { resolveFFmpegPath } = require('../src/lib/ffmpeg');
+const { isUsableFFmpeg, resolveFFmpegPath } = require('../src/lib/ffmpeg');
 
 test('resolveFFmpegPath prefers an executable FFMPEG_PATH', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bbb-ffmpeg-test-'));
@@ -38,5 +38,18 @@ test('resolveFFmpegPath finds an executable bundled ffmpeg', () => {
         if (previousPath !== undefined) {
             process.env.FFMPEG_PATH = previousPath;
         }
+    }
+});
+
+test('resolveFFmpegPath rejects an executable that cannot run', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bbb-invalid-ffmpeg-test-'));
+    const invalidPath = path.join(tempDir, 'ffmpeg');
+
+    try {
+        fs.writeFileSync(invalidPath, 'not a valid executable');
+        fs.chmodSync(invalidPath, 0o755);
+        assert.equal(isUsableFFmpeg(invalidPath), false);
+    } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
