@@ -1,7 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Recorder = require('../src/lib/recorder');
-const { formatDuration, parseFfmpegTimestamp } = require('../src/lib/recorder');
+const {
+    assertSupportedRuntimeArchitecture,
+    formatDuration,
+    isAppleSiliconHostUsingIntelNode,
+    parseFfmpegTimestamp
+} = require('../src/lib/recorder');
 
 test('Recorder starts with expected recording state', () => {
     const recorder = new Recorder();
@@ -26,4 +31,44 @@ test('formatDuration renders short ETA values for progress messages', () => {
     assert.equal(formatDuration(null), 'calculating');
     assert.equal(formatDuration(4.1), '5s');
     assert.equal(formatDuration(65.2), '1m 6s');
+});
+
+test('architecture check detects Intel Node on an Apple Silicon host', () => {
+    const options = {
+        platform: 'darwin',
+        architecture: 'x64',
+        readSystemValue: () => '1\n'
+    };
+
+    assert.equal(isAppleSiliconHostUsingIntelNode(options), true);
+    assert.throws(
+        () => assertSupportedRuntimeArchitecture(options),
+        /Intel \(x64\) build of Node\.js/
+    );
+});
+
+test('architecture check accepts a native ARM64 Node runtime', () => {
+    const options = {
+        platform: 'darwin',
+        architecture: 'arm64',
+        readSystemValue: () => '1\n'
+    };
+
+    assert.equal(isAppleSiliconHostUsingIntelNode(options), false);
+    assert.doesNotThrow(() => assertSupportedRuntimeArchitecture(options));
+});
+
+test('architecture check does not restrict Linux or Windows', () => {
+    for (const platform of ['linux', 'win32']) {
+        const options = {
+            platform,
+            architecture: 'x64',
+            readSystemValue: () => {
+                throw new Error('macOS system detection must not run');
+            }
+        };
+
+        assert.equal(isAppleSiliconHostUsingIntelNode(options), false);
+        assert.doesNotThrow(() => assertSupportedRuntimeArchitecture(options));
+    }
 });

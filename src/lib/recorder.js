@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
-const { spawn } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 const { resolveFFmpegPath } = require('./ffmpeg');
 
 const BASE_TEMP_DIR = path.join(process.cwd(), 'temp_chunks');
@@ -16,6 +16,36 @@ const ensureDir = (dirPath) => {
 const getTimestamp = () => new Date().toISOString().replace(/[:.]/g, '-');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isAppleSiliconHostUsingIntelNode = ({
+    platform = process.platform,
+    architecture = process.arch,
+    readSystemValue = execFileSync
+} = {}) => {
+    if (platform !== 'darwin' || architecture !== 'x64') return false;
+
+    try {
+        return readSystemValue(
+            '/usr/sbin/sysctl',
+            ['-n', 'hw.optional.arm64'],
+            { encoding: 'utf8' }
+        ).trim() === '1';
+    } catch {
+        return false;
+    }
+};
+
+const assertSupportedRuntimeArchitecture = (options) => {
+    if (!isAppleSiliconHostUsingIntelNode(options)) return;
+
+    throw new Error(
+        'This Apple Silicon Mac is running the Intel (x64) build of Node.js under Rosetta. ' +
+        'Puppeteer cannot reliably launch Chrome in this configuration. ' +
+        'Start a native terminal with `arch -arm64 zsh`, install/use an ARM64 Node.js build, ' +
+        'then reinstall dependencies with `npm ci`. Verify the fix with ' +
+        '`node -p "process.arch"` (it must print `arm64`).'
+    );
+};
 
 const FFMPEG_PRESET = 'ultrafast';
 const FFMPEG_CRF = '23';
@@ -122,10 +152,12 @@ class Recorder {
 
     async startRecording(meetingUrl) {
         try {
+            assertSupportedRuntimeArchitecture();
             await this.initialize();
 
             this.updateProgress('Launching browser...', 10);
             this.browser = await puppeteer.launch({
+                timeout: this.BASE_TIMEOUT,
                 protocolTimeout: this.BASE_TIMEOUT,
                 headless: 'new',
                 args: [
@@ -800,3 +832,5 @@ class Recorder {
 module.exports = Recorder;
 module.exports.parseFfmpegTimestamp = parseFfmpegTimestamp;
 module.exports.formatDuration = formatDuration;
+module.exports.isAppleSiliconHostUsingIntelNode = isAppleSiliconHostUsingIntelNode;
+module.exports.assertSupportedRuntimeArchitecture = assertSupportedRuntimeArchitecture;

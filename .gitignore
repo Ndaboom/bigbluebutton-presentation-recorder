@@ -2,3 +2,7 @@
 /temp_chunks
 /.next
 /public/exports
+.DS_Store
+/meeting_*.mp4
+/recorded.webm
+/partial_recording_*.webm
